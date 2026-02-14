@@ -6,9 +6,9 @@ using PayByLink.Domain.Entities;
 using PayByLink.Domain.Enums;
 using PayByLink.DTOs.Payments;
 using PayByLink.Infrastructure.Persistence;
-using PayByLink.Api.Infrastructure.Messaging;
+using PayByLink.Infrastructure.Messaging;
 
-namespace PayByLink.Api.Controllers;
+namespace PayByLink.Controllers;
 
 [ApiController]
 [Route("payments")]
@@ -50,14 +50,28 @@ public class PaymentsController : ControllerBase
         };
 
         _db.PaymentRequests.Add(payment);
-        await _db.SaveChangesAsync();
 
-        await _notify.SendPaymentLinkAsync(
+        var sendResults = await _notify.SendPaymentLinkAsync(
             request.CustomerContact,
             session.Url,
-            request.Channel // auto|whatsapp|sms|email
+            request.Channel
         );
 
+        foreach (var r in sendResults)
+        {
+            _db.NotificationAttempts.Add(new NotificationAttempt
+            {
+                PaymentRequestId = payment.Id,
+                Channel = r.Channel,
+                Status = r.Status,
+                Provider = r.Provider,
+                ProviderMessageId = r.ProviderMessageId,
+                To = r.To,
+                Error = r.Error
+            });
+        }
+
+        await _db.SaveChangesAsync();
         return new CreatePaymentResponse(payment.Id, session.Url);
     }
 

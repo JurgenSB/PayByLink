@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using PayByLink.Domain.Entities;
 
+
 namespace PayByLink.Infrastructure.Persistence;
 
 public class AppDbContext : DbContext
@@ -11,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<PaymentRequest> PaymentRequests => Set<PaymentRequest>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<NotificationAttempt> NotificationAttempts => Set<NotificationAttempt>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -21,5 +23,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<PaymentRequest>()
             .Property(p => p.Amount)
             .HasPrecision(18, 2);
+
+        modelBuilder.Entity<NotificationAttempt>()
+        .HasIndex(x => x.PaymentRequestId);
     }
 }

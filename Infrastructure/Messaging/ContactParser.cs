@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace PayByLink.Api.Infrastructure.Messaging;
+namespace PayByLink.Infrastructure.Messaging;
 
 public static class ContactParser
 {

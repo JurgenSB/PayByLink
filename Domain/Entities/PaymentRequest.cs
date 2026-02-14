@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using PayByLink.Domain.Entities;
 using PayByLink.Domain.Enums;
 
 namespace PayByLink.Domain.Entities;
@@ -36,4 +37,7 @@ public class PaymentRequest
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? PaidAt { get; set; }
+    public ICollection<NotificationAttempt> NotificationAttempts { get; set; }
+    = new List<NotificationAttempt>();
+
 }

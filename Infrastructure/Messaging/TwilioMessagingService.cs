@@ -1,7 +1,7 @@
 using Twilio;
 using Twilio.Rest.Api.V2010.Account;
 
-namespace PayByLink.Api.Infrastructure.Messaging;
+namespace PayByLink.Infrastructure.Messaging;
 
 public class TwilioMessagingService
 {

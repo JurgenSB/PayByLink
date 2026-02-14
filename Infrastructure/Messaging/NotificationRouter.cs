@@ -1,4 +1,6 @@
-namespace PayByLink.Api.Infrastructure.Messaging;
+using PayByLink.Domain.Enum;
+
+namespace PayByLink.Infrastructure.Messaging;
 
 public class NotificationRouter
 {
@@ -9,60 +11,104 @@ public class NotificationRouter
         _twilio = twilio;
     }
 
-    public async Task SendPaymentLinkAsync(string contact, string paymentLink, string? channel = "auto")
+    public async Task<List<NotificationSendResult>> SendPaymentLinkAsync(
+        string contact,
+        string paymentLink,
+        string? channel = "auto")
     {
         channel = (channel ?? "auto").Trim().ToLowerInvariant();
+        var results = new List<NotificationSendResult>();
 
         var msg = $"Olá! Aqui está seu link para pagamento: {paymentLink}";
+        var trimmed = contact.Trim();
 
         if (channel == "auto")
         {
-            if (ContactParser.IsPhoneE164(contact))
+            if (ContactParser.IsPhoneE164(trimmed))
             {
-                // tenta WhatsApp e cai pra SMS se der erro
+                // 1) tenta WhatsApp
                 try
                 {
-                    await _twilio.SendWhatsappAsync(contact, msg);
-                    return;
+                    var sid = await _twilio.SendWhatsappAsync(trimmed, msg);
+                    results.Add(new NotificationSendResult(
+                        NotificationChannel.Whatsapp, NotificationStatus.Sent,
+                        "Twilio", sid, trimmed, null));
+                    return results;
                 }
-                catch
+                catch (Exception ex)
                 {
-                    await _twilio.SendSmsAsync(contact, msg);
-                    return;
+                    results.Add(new NotificationSendResult(
+                        NotificationChannel.Whatsapp, NotificationStatus.Failed,
+                        "Twilio", null, trimmed, ex.Message));
+                }
+
+                // 2) fallback SMS
+                try
+                {
+                    var sid = await _twilio.SendSmsAsync(trimmed, msg);
+                    results.Add(new NotificationSendResult(
+                        NotificationChannel.Sms, NotificationStatus.Sent,
+                        "Twilio", sid, trimmed, null));
+                    return results;
+                }
+                catch (Exception ex)
+                {
+                    results.Add(new NotificationSendResult(
+                        NotificationChannel.Sms, NotificationStatus.Failed,
+                        "Twilio", null, trimmed, ex.Message));
+                    return results; // ambas falharam
                 }
             }
 
-            // se não for telefone, tenta email (placeholder)
-            if (ContactParser.IsEmail(contact))
+            // email (placeholder)
+            if (ContactParser.IsEmail(trimmed))
             {
-                // TODO: integrar provider de email (SendGrid/SMTP)
-                // Por enquanto: não falha o fluxo de cobrança
-                return;
+                results.Add(new NotificationSendResult(
+                    NotificationChannel.Email, NotificationStatus.Skipped,
+                    "EmailProvider", null, trimmed, "Email provider not configured yet"));
+                return results;
             }
 
-            // contato inválido
             throw new ArgumentException("CustomerContact inválido. Use telefone E.164 (+...) ou email.");
         }
 
         if (channel == "whatsapp")
         {
-            if (!ContactParser.IsPhoneE164(contact)) throw new ArgumentException("WhatsApp requer telefone E.164 (+...)");
-            await _twilio.SendWhatsappAsync(contact, msg);
-            return;
+            if (!ContactParser.IsPhoneE164(trimmed)) throw new ArgumentException("WhatsApp requer telefone E.164 (+...)");
+            try
+            {
+                var sid = await _twilio.SendWhatsappAsync(trimmed, msg);
+                results.Add(new NotificationSendResult(NotificationChannel.Whatsapp, NotificationStatus.Sent, "Twilio", sid, trimmed, null));
+            }
+            catch (Exception ex)
+            {
+                results.Add(new NotificationSendResult(NotificationChannel.Whatsapp, NotificationStatus.Failed, "Twilio", null, trimmed, ex.Message));
+            }
+            return results;
         }
 
         if (channel == "sms")
         {
-            if (!ContactParser.IsPhoneE164(contact)) throw new ArgumentException("SMS requer telefone E.164 (+...)");
-            await _twilio.SendSmsAsync(contact, msg);
-            return;
+            if (!ContactParser.IsPhoneE164(trimmed)) throw new ArgumentException("SMS requer telefone E.164 (+...)");
+            try
+            {
+                var sid = await _twilio.SendSmsAsync(trimmed, msg);
+                results.Add(new NotificationSendResult(NotificationChannel.Sms, NotificationStatus.Sent, "Twilio", sid, trimmed, null));
+            }
+            catch (Exception ex)
+            {
+                results.Add(new NotificationSendResult(NotificationChannel.Sms, NotificationStatus.Failed, "Twilio", null, trimmed, ex.Message));
+            }
+            return results;
         }
 
         if (channel == "email")
         {
-            if (!ContactParser.IsEmail(contact)) throw new ArgumentException("Email inválido");
-            // TODO: integrar provider de email (SendGrid/SMTP)
-            return;
+            if (!ContactParser.IsEmail(trimmed)) throw new ArgumentException("Email inválido");
+            results.Add(new NotificationSendResult(
+                NotificationChannel.Email, NotificationStatus.Skipped,
+                "EmailProvider", null, trimmed, "Email provider not configured yet"));
+            return results;
         }
 
         throw new ArgumentException("Channel inválido. Use: auto | whatsapp | sms | email.");

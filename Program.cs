@@ -4,7 +4,7 @@ using PayByLink.Infrastructure.Auth;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Stripe;
-using PayByLink.Api.Infrastructure.Messaging;
+using PayByLink.Infrastructure.Messaging;
 
 //using System.IDisisposable;
 
